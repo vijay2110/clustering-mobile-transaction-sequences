@@ -17,7 +17,7 @@ public class CTMSPUtil {
         ArrayList<MTSNode> s2=seq2.seq;
                 
         //time length
-        int len=24;
+        //int len=24;
         
         //location penalty
         float penalty=0.5f/(s1.size()+s2.size());
@@ -36,6 +36,11 @@ public class CTMSPUtil {
         for(int i=1; i<=s1.size(); i++){
             for(int j=1; j<=s2.size(); j++){
                 if(s1.get(i-1).location.loc==s2.get(j-1).location.loc){
+          
+                    //time length
+                    int len=s2.get(j-1).hour;
+                    if(s1.get(i-1).hour > s2.get(j-1).hour)
+                        len=s1.get(i-1).hour;
                     
                     //time penalty
                     float tp = penalty*(Math.abs(s1.get(i-1).hour-s2.get(j-1).hour))/len;
@@ -51,8 +56,8 @@ public class CTMSPUtil {
                     int servicesUnion = temps1.size();
                     if(servicesUnion!=0)
                         sr = penalty*servicesIntersect/servicesUnion;
-                    //else if(servicesIntersect==0) //intersect and union both zero means same service
-                    //    sr = penalty;
+                    else if(servicesIntersect==0) //intersect and union both zero means same service
+                        sr = penalty;
                     
                     //calculate score
                     m[i][j]=Math.max(m[i-1][j-1]-tp+sr, Math.max(m[i-1][j]-penalty, m[i][j-1]-penalty)); 
