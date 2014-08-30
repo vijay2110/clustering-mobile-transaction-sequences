@@ -15,6 +15,13 @@ public class MTSNode implements Comparable<MTSNode> {
         this.hour = hour;
         this.appids = appids;
     }
+    
+    public MTSNode(int hour, int loc, String appid) {
+        this.appids = new ArrayList<String>();
+        appids.add(appid);
+        this.location = new Location(loc);
+        this.hour = hour;
+    }
 
     @Override
     public int compareTo(MTSNode o) {

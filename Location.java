@@ -13,4 +13,10 @@ public class Location {
         this.loc = loc;
     }
     
+    public Location(int i) {
+        this.lat = 0;
+        this.lon = 0;
+        this.loc = i;
+    }
+    
 }
