@@ -134,7 +134,7 @@ public class CTMSPUtil {
         
         //if there is only one member in initialClusters then just return same result, as no more clustering required
         //if threshold is 0 then just return same result, as no more clustering required
-        if(initialClusters.size()==1 || threshold==0f)
+        if(initialClusters.size()==1) // || threshold==0f)
             return initialClusters;
         
         //get all elements
@@ -142,7 +142,7 @@ public class CTMSPUtil {
         
         //Create empty clustering result which we are going to return at the end
         HashMap<Integer,HashSet<Integer>> clusters = new HashMap<Integer,HashSet<Integer>>();
-        int clusterId = 1;
+        int clusterId = 0;
         
         //keep iterating until we have elements which are not assigned to any cluster
         //TODO check whether this goes into infinite loop
@@ -150,20 +150,31 @@ public class CTMSPUtil {
             
             //select pair from elements with highest similarity 
             float max = 0f;
-            int mts1=1,mts2=2; //these choices will be replaced by below logic (worst case, if max not found, then these choices are good enough)
+            int mts1=0,mts2=1; //these choices will be replaced by below logic (worst case, if max not found, then these choices are good enough)
             ArrayList<Integer> alElements = new ArrayList<Integer>(elements);
-            for(int i=0; i<alElements.size(); i++)
-                for(int j=i+1; j<alElements.size(); j++)
-                    if(simMat[alElements.get(i)][alElements.get(j)]>max){
-                        max=simMat[alElements.get(i)][alElements.get(j)];
-                        mts1=alElements.get(i);
-                        mts2=alElements.get(j);
-                    }
-            
-            //add selected pair to new cluster
             HashSet<Integer> c = new HashSet<Integer>();
-            c.add(mts1);
-            c.add(mts2);
+            if(alElements.size()==1){
+                c.add(alElements.get(0));
+                clusters.put(clusterId, c);
+                break;
+            }else{
+            
+                for(int i=0; i<alElements.size(); i++)
+                    for(int j=i+1; j<alElements.size(); j++)
+                        if(simMat[alElements.get(i)][alElements.get(j)]>max){
+                            max=simMat[alElements.get(i)][alElements.get(j)];
+                            mts1=alElements.get(i);
+                            mts2=alElements.get(j);
+                        }
+                
+                //add selected pair to new cluster
+                
+                c.add(mts1);
+                c.add(mts2);
+            }
+                
+            
+            boolean cChanged=false;
             
             //keep iterating until cluster gets converged
             //TODO check whether this goes into infinite loop
@@ -173,12 +184,17 @@ public class CTMSPUtil {
                 boolean removedDistantMTSfromCluster=false;
                 
                 //calculate cluster's self similarity, by taking mean similarity
-                float selfSimC = 0;
+                float selfSimC = 0f;
                 ArrayList<Integer> alC = new ArrayList<Integer>(c);
-                for(int i=0; i<alC.size(); i++)
-                    for(int j=i+1; j<alC.size(); j++)
-                        selfSimC = selfSimC + simMat[alC.get(i)][alC.get(j)];
-                selfSimC = selfSimC/(float)(alC.size()*(alC.size()-1)/2);
+                //if(!cChanged)
+                //    selfSimC=max;
+                //else{
+                    cChanged=true;
+                    for(int i=0; i<alC.size(); i++)
+                        for(int j=i+1; j<alC.size(); j++)
+                            selfSimC = selfSimC + simMat[alC.get(i)][alC.get(j)];
+                    selfSimC = selfSimC/(float)(alC.size()*(alC.size()-1)/2);
+                //}
                 
                 //find nearest MTS which is not in cluster
                 ArrayList<Integer> alEle = new ArrayList<Integer>(elements);
@@ -194,35 +210,39 @@ public class CTMSPUtil {
                     }
                 
                 //add that nearest close MTS into cluster
-                if(nearestMTS!=0 && minDistance<=threshold){
+                if(nearestMTS!=0 && minDistance<threshold){
                     c.add(nearestMTS);
                     addedCloseMTStoCluster=true;
                 }
                 
-                //re-calculate cluster's self similarity, by taking mean similarity
-                selfSimC = 0;
-                alC = new ArrayList<Integer>(c);
-                for(int i=0; i<alC.size(); i++)
-                    for(int j=i+1; j<alC.size(); j++)
-                        selfSimC = selfSimC + simMat[alC.get(i)][alC.get(j)];
-                selfSimC = selfSimC/(float)(alC.size()*(alC.size()-1)/2);
+                if(addedCloseMTStoCluster){
+                    //re-calculate cluster's self similarity, by taking mean similarity
+                    selfSimC = 0;
+                    alC = new ArrayList<Integer>(c);
+                    for(int i=0; i<alC.size(); i++)
+                        for(int j=i+1; j<alC.size(); j++)
+                            selfSimC = selfSimC + simMat[alC.get(i)][alC.get(j)];
+                    selfSimC = selfSimC/(float)(alC.size()*(alC.size()-1)/2);
+                }
                 
-                //find farthest MTC within cluster
-                int farthestMTS1=0, farthestMTS2=0;
-                float maxDistance=0f;
-                for(int i=0; i<alC.size(); i++)
-                    for(int j=i+1; j<alC.size(); j++)
-                        if(Math.abs(selfSimC - simMat[alC.get(i)][alC.get(j)]) > maxDistance){
-                            farthestMTS1 = alC.get(i);
-                            farthestMTS2 = alC.get(j);
-                            maxDistance = Math.abs(selfSimC - simMat[alC.get(i)][alC.get(j)]);
-                        }
-                
-                //remove that farthest distant pair from cluster
-                if(farthestMTS1!=0 && maxDistance>threshold){
-                    c.remove(farthestMTS1);
-                    c.remove(farthestMTS2);
-                    removedDistantMTSfromCluster=true;
+                if(c.size()>2){
+                    //find farthest MTC within cluster
+                    int farthestMTS1=0, farthestMTS2=0;
+                    float maxDistance=0f;
+                    for(int i=0; i<alC.size(); i++)
+                        for(int j=i+1; j<alC.size(); j++)
+                            if(Math.abs(selfSimC - simMat[alC.get(i)][alC.get(j)]) > maxDistance){
+                                farthestMTS1 = alC.get(i);
+                                farthestMTS2 = alC.get(j);
+                                maxDistance = Math.abs(selfSimC - simMat[alC.get(i)][alC.get(j)]);
+                            }
+                    
+                    //remove that farthest distant pair from cluster
+                    if(farthestMTS1!=0 && maxDistance>=threshold){
+                        c.remove(farthestMTS1);
+                        c.remove(farthestMTS2);
+                        removedDistantMTSfromCluster=true;
+                    }
                 }
                 
                 //check whether cluster is converged
@@ -246,10 +266,10 @@ public class CTMSPUtil {
     public static HashMap<Integer,HashSet<Integer>> performCoSmartCAST(float[][] simMat) throws CTMSPException{
         //TODO Input Validation
         
-        //for simplicity (while calculating Hubert's Gamma Stats) populate diagonal elements of similarity matrix as 1
-        for(int i=0; i<simMat.length; i++)
-            for(int j=0; j<simMat.length; j++)
-                if(i==j) simMat[i][j]=1f;
+        //TODO update this - for simplicity (while calculating Hubert's Gamma Stats) populate diagonal elements of similarity matrix as 1
+        //for(int i=0; i<simMat.length; i++)
+        //    for(int j=0; j<simMat.length; j++)
+        //        if(i==j) simMat[i][j]=1f;
         
         HashMap<Integer,HashSet<Integer>> initialClusters = new HashMap<Integer,HashSet<Integer>>();
         for(int k=0; k<simMat.length; k++){
@@ -261,6 +281,8 @@ public class CTMSPUtil {
         float gammaCObest = -1f;
         HashMap<Integer,HashSet<Integer>> bestClusteringResult = initialClusters;
         float epsilon = 0.0001f;
+        float[][] lastCSimMat = simMat;
+        float[][] lastTransformedCSimMat = simMat;
         
         boolean noBetterGammaCO = false;
         while(!noBetterGammaCO){
@@ -282,11 +304,7 @@ public class CTMSPUtil {
                     float tempThreshold = ((float)i*(rUpper-rLower)/4f)+rLower; 
                     thresholds.add(tempThreshold);
                     
-                    if(i==0)
-                        clusteringResult.add(performCAST(initialClusters, simMat, thresholds.get(i)));
-                    else
-                        clusteringResult.add(performCAST(initialClusters, simMat, thresholds.get(i)));
-                        //clusteringResult.add(performCAST(clusteringResult.get(i-1), cSimMats.get(i-1), thresholds.get(i)));
+                    clusteringResult.add(performCAST(bestClusteringResult, lastCSimMat, tempThreshold));
                     
                     //calculate cluster similarity matrix
                     ArrayList<Integer> alC = new ArrayList<Integer>(clusteringResult.get(i).keySet());
@@ -295,21 +313,42 @@ public class CTMSPUtil {
                     for(int r=0; r<noOfClusters; r++)
                         for(int c=0; c<noOfClusters; c++){
                             if(r==c){
-                                //populate diagonal elements (self similarity) as 1
-                                cSimMat[r][c]=1f;
+                                //TODO update this populate diagonal elements (self similarity) as 1
+                                float selfSimC = 0f;
+                                ArrayList<Integer> members = new ArrayList<Integer>(clusteringResult.get(i).get(alC.get(r)));
+                                if(members.size()==1)
+                                    cSimMat[r][c]=simMat[members.get(0)][members.get(0)];
+                                else{
+                                    for(int x=0; x<members.size(); x++)
+                                        for(int y=x+1; y<members.size(); y++)
+                                            selfSimC = selfSimC + simMat[members.get(x)][members.get(y)];
+                                    selfSimC = selfSimC/(float)(members.size()*(members.size()-1)/2);
+                                    cSimMat[r][c]=selfSimC;
+                                }
                             }else{
                                 //populate non-diagonal elements (member's similarity of cluster x with member's similarity of cluster y)
                                 float tempSum=0f;
                                 ArrayList<Integer> xMembers = new ArrayList<Integer>(clusteringResult.get(i).get(alC.get(r)));
                                 ArrayList<Integer> yMembers = new ArrayList<Integer>(clusteringResult.get(i).get(alC.get(c)));
+                                //System.out.println(xMembers.size()+" "+yMembers.size());
                                 for(int a=0; a<xMembers.size(); a++)
-                                    for(int b=0; b<yMembers.size(); b++)
-                                        tempSum = tempSum + simMat[a][b];
+                                    for(int b=0; b<yMembers.size(); b++){//System.out.println("simMat[a][b]:"+simMat[xMembers.get(a)][yMembers.get(b)]);
+                                        tempSum = tempSum + simMat[xMembers.get(a)][yMembers.get(b)];}
+                                //System.out.println("tempSum:"+tempSum);
                                 cSimMat[r][c]=tempSum/(float)(xMembers.size()*yMembers.size());
+                                //System.out.println("cSimMat[r][c]:"+cSimMat[r][c]);
                             }
                         }
                     cSimMats.add(cSimMat);
-                            
+                    System.out.println("Threshold:"+tempThreshold);
+                    System.out.println("cSimMat:");
+                    for(int x=0; x<cSimMat.length; x++){
+                        System.out.println(" ");
+                        for(int y=0; y<cSimMat.length; y++)
+                            System.out.print(cSimMat[x][y]+" ");
+                    }
+                    System.out.println(" ");
+                    
                     //transform cluster similarity matrix so that it has similar dimention of original similarity matrix (simMat)
                     float[][] transformedCSimMat = new float[simMat.length][simMat.length];
                     int[] mapMtsToCluster = new int[simMat.length];
@@ -320,27 +359,33 @@ public class CTMSPUtil {
                     }
                     for(int a=0; a<simMat.length; a++)
                         for(int b=0; b<simMat.length; b++){
-                            if(a==b)
-                                transformedCSimMat[a][b]=1f;
-                            else
+                            //if(a==b)
+                            //    transformedCSimMat[a][b]=1f;
+                            //else if(noOfClusters>1) //non diagonal elements should remain 0 if it's just 1 cluster
+                            if(noOfClusters>1) //non diagonal elements should remain 0 if it's just 1 cluster
                                 transformedCSimMat[a][b]=cSimMat[mapMtsToCluster[a]][mapMtsToCluster[b]];
                         }
                     transformedCSimMats.add(transformedCSimMat);
+                    System.out.println("transformedCSimMat:");
+                    for(int x=0; x<transformedCSimMat.length; x++){
+                        System.out.println(" ");
+                        for(int y=0; y<transformedCSimMat.length; y++)
+                            System.out.print(transformedCSimMat[x][y]+" ");
+                    }
+                    System.out.println(" ");
                     
-                    float gammaObj = calculateHubertsGammaStats(transformedCSimMats.get(i),simMat);
-                    float gammaClu;
-                    if(i==0)
-                        gammaClu = gammaObj;
-                    else
-                        gammaClu = calculateHubertsGammaStats(transformedCSimMats.get(i), transformedCSimMats.get(i-1));
+                    float gammaObj = calculateHubertsGammaStats(transformedCSimMat,simMat);
+                    float gammaClu = calculateHubertsGammaStats(transformedCSimMat, lastTransformedCSimMat);
                     
                     float gammaCO = 2*gammaClu*gammaObj/(gammaClu+gammaObj);  
-                    System.out.println(gammaObj+" "+gammaClu+" "+gammaCO+" "+gammaCOmax+" "+gammaCObest+" "+bestI+" "+tempThreshold);
+                    //System.out.println(gammaObj+" "+gammaClu+" "+gammaCO+" "+gammaCOmax+" "+gammaCObest+" "+bestI+" "+tempThreshold);
                     gammaCOs.add(gammaCO);
                     if(gammaCO>gammaCOmax){
                         gammaCOmax=gammaCO;
                         bestI = i;
                     }
+                    System.out.println(clusteringResult.get(i));
+                    System.out.println(gammaObj+" "+gammaClu+" "+gammaCO+" "+gammaCOmax+" "+gammaCObest);
                 }
                 if(bestI<4)
                     rLower=thresholds.get(bestI+1);
@@ -351,15 +396,17 @@ public class CTMSPUtil {
                 else
                     rUpper=thresholds.get(bestI);
                 
-                System.out.println(rUpper+" "+rLower+" "+(rUpper-rLower)+" "+epsilon);
+                //System.out.println(rUpper+" "+rLower+" "+(rUpper-rLower)+" "+epsilon);
             }while((rUpper-rLower)<epsilon);
+            
             
             
             if(gammaCOs.get(bestI)>gammaCObest){
                 gammaCObest=gammaCOs.get(bestI);
                 bestClusteringResult = clusteringResult.get(bestI);
+                lastCSimMat = cSimMats.get(bestI);
+                lastTransformedCSimMat = transformedCSimMats.get(bestI);
             }else{
-                //reset noBetterGammaCO
                 noBetterGammaCO=true;
             }
             
