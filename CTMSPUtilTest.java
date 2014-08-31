@@ -263,10 +263,13 @@ public class CTMSPUtilTest {
             }
         System.out.println(" ");
         
-        HashSet<Integer> elements = new HashSet<Integer>();
-        for(int i=0; i<7; i++)
-            elements.add(i);
-        HashMap<Integer,HashSet<Integer>> result = CTMSPUtil.performCAST(elements, simMat, 0.2f);
+        HashMap<Integer,HashSet<Integer>> initialClusters = new HashMap<Integer,HashSet<Integer>>();
+        for(int k=0; k<simMat.length; k++){
+            HashSet<Integer> members = new HashSet<Integer>();
+            members.add(k);
+            initialClusters.put(k, members);
+        }
+        HashMap<Integer,HashSet<Integer>> result = CTMSPUtil.performCAST(initialClusters, simMat, 0.2f);
         ArrayList<Integer> ral = new ArrayList<Integer>(result.keySet()); 
         for(int i=0; i<ral.size(); i++){
             System.out.println("Cluster "+ral.get(i));
@@ -274,5 +277,16 @@ public class CTMSPUtilTest {
             for(int j=0; j<members.size(); j++)
                 System.out.println(members.get(j));
         }
+        
+        System.out.println("Now testing co-Smart-CAST");
+        result = CTMSPUtil.performCoSmartCAST(simMat);
+        ral = new ArrayList<Integer>(result.keySet()); 
+        for(int i=0; i<ral.size(); i++){
+            System.out.println("Cluster "+ral.get(i));
+            ArrayList<Integer> members = new ArrayList<Integer>(result.get(ral.get(i)));
+            for(int j=0; j<members.size(); j++)
+                System.out.println(members.get(j));
+        }
+        
     }
 }
