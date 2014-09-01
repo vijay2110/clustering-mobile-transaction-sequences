@@ -1,3 +1,8 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -280,6 +285,7 @@ public class CTMSPUtilTest {
         
         System.out.println("Now testing co-Smart-CAST");
         result = CTMSPUtil.performCoSmartCAST(simMat);
+        System.out.println("Final Clustering result");
         ral = new ArrayList<Integer>(result.keySet()); 
         for(int i=0; i<ral.size(); i++){
             System.out.println("Cluster "+ral.get(i));
@@ -287,6 +293,27 @@ public class CTMSPUtilTest {
             for(int j=0; j<members.size(); j++)
                 System.out.println(members.get(j));
         }
+    }
+    
+    @Test
+    public void testPerformCoSmartCAST() throws IOException{
+        File f1=new File("user_sample.txt");
+        BufferedReader reader = null;
+        reader = new BufferedReader(new InputStreamReader(new FileInputStream(f1)));
+        for (String line; (line = reader.readLine()) != null;) {
+            line=line.trim().substring(1, line.length()-1);
+            String[] tokens = line.split(",");
+            String[] tTokens = tokens[5].trim().split(":");
+            tTokens[1]=tTokens[1].trim();
+            tTokens[1] = tTokens[1].substring(1,tTokens[1].length()-1);
+            long epoch = Long.parseLong(tTokens[1]);
+            String date = new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(new java.util.Date (epoch*1000));
+            
+            System.out.println(tokens.length + " " + tTokens[1] + " " + date + " " + line);
+        }
+        
+        
+        reader.close();
         
     }
 }

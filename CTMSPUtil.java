@@ -123,7 +123,6 @@ public class CTMSPUtil {
      */
     public static HashMap<Integer,HashSet<Integer>> performCAST(HashMap<Integer,HashSet<Integer>> initialClusters, float[][] simMat, float threshold) throws CTMSPException{
         
-        //System.out.println("One:"+threshold+" "+initialClusters+" "+simMat);
         //Input Validation
         if(initialClusters==null || simMat==null)
             throw new CTMSPException();
@@ -271,11 +270,16 @@ public class CTMSPUtil {
         //    for(int j=0; j<simMat.length; j++)
         //        if(i==j) simMat[i][j]=1f;
         
+        HashMap<Integer,HashSet<Integer>> hierarClusteringResult=new HashMap<Integer,HashSet<Integer>>();
         HashMap<Integer,HashSet<Integer>> initialClusters = new HashMap<Integer,HashSet<Integer>>();
         for(int k=0; k<simMat.length; k++){
             HashSet<Integer> members = new HashSet<Integer>();
             members.add(k);
             initialClusters.put(k, members);
+            
+            HashSet<Integer> hMembers = new HashSet<Integer>();
+            hMembers.add(k);
+            hierarClusteringResult.put(k, hMembers);
         }
         
         float gammaCObest = -1f;
@@ -330,24 +334,13 @@ public class CTMSPUtil {
                                 float tempSum=0f;
                                 ArrayList<Integer> xMembers = new ArrayList<Integer>(clusteringResult.get(i).get(alC.get(r)));
                                 ArrayList<Integer> yMembers = new ArrayList<Integer>(clusteringResult.get(i).get(alC.get(c)));
-                                //System.out.println(xMembers.size()+" "+yMembers.size());
                                 for(int a=0; a<xMembers.size(); a++)
-                                    for(int b=0; b<yMembers.size(); b++){//System.out.println("simMat[a][b]:"+simMat[xMembers.get(a)][yMembers.get(b)]);
-                                        tempSum = tempSum + simMat[xMembers.get(a)][yMembers.get(b)];}
-                                //System.out.println("tempSum:"+tempSum);
+                                    for(int b=0; b<yMembers.size(); b++)
+                                        tempSum = tempSum + simMat[xMembers.get(a)][yMembers.get(b)];
                                 cSimMat[r][c]=tempSum/(float)(xMembers.size()*yMembers.size());
-                                //System.out.println("cSimMat[r][c]:"+cSimMat[r][c]);
                             }
                         }
                     cSimMats.add(cSimMat);
-                    System.out.println("Threshold:"+tempThreshold);
-                    System.out.println("cSimMat:");
-                    for(int x=0; x<cSimMat.length; x++){
-                        System.out.println(" ");
-                        for(int y=0; y<cSimMat.length; y++)
-                            System.out.print(cSimMat[x][y]+" ");
-                    }
-                    System.out.println(" ");
                     
                     //transform cluster similarity matrix so that it has similar dimention of original similarity matrix (simMat)
                     float[][] transformedCSimMat = new float[simMat.length][simMat.length];
@@ -359,33 +352,20 @@ public class CTMSPUtil {
                     }
                     for(int a=0; a<simMat.length; a++)
                         for(int b=0; b<simMat.length; b++){
-                            //if(a==b)
-                            //    transformedCSimMat[a][b]=1f;
-                            //else if(noOfClusters>1) //non diagonal elements should remain 0 if it's just 1 cluster
                             if(noOfClusters>1) //non diagonal elements should remain 0 if it's just 1 cluster
                                 transformedCSimMat[a][b]=cSimMat[mapMtsToCluster[a]][mapMtsToCluster[b]];
                         }
                     transformedCSimMats.add(transformedCSimMat);
-                    System.out.println("transformedCSimMat:");
-                    for(int x=0; x<transformedCSimMat.length; x++){
-                        System.out.println(" ");
-                        for(int y=0; y<transformedCSimMat.length; y++)
-                            System.out.print(transformedCSimMat[x][y]+" ");
-                    }
-                    System.out.println(" ");
                     
                     float gammaObj = calculateHubertsGammaStats(transformedCSimMat,simMat);
                     float gammaClu = calculateHubertsGammaStats(transformedCSimMat, lastTransformedCSimMat);
                     
                     float gammaCO = 2*gammaClu*gammaObj/(gammaClu+gammaObj);  
-                    //System.out.println(gammaObj+" "+gammaClu+" "+gammaCO+" "+gammaCOmax+" "+gammaCObest+" "+bestI+" "+tempThreshold);
                     gammaCOs.add(gammaCO);
                     if(gammaCO>gammaCOmax){
                         gammaCOmax=gammaCO;
                         bestI = i;
                     }
-                    System.out.println(clusteringResult.get(i));
-                    System.out.println(gammaObj+" "+gammaClu+" "+gammaCO+" "+gammaCOmax+" "+gammaCObest);
                 }
                 if(bestI<4)
                     rLower=thresholds.get(bestI+1);
@@ -395,22 +375,42 @@ public class CTMSPUtil {
                     rUpper=thresholds.get(bestI-1);
                 else
                     rUpper=thresholds.get(bestI);
-                
-                //System.out.println(rUpper+" "+rLower+" "+(rUpper-rLower)+" "+epsilon);
             }while((rUpper-rLower)<epsilon);
             
-            
+            //displaying intermediate clustering results, TODO remove this later
+            System.out.println("Diaplying intermediate clustering results");
+            ArrayList<Integer> hal = new ArrayList<Integer>(hierarClusteringResult.keySet()); 
+            for(int i=0; i<hal.size(); i++){
+                System.out.println("Cluster "+hal.get(i));
+                ArrayList<Integer> members = new ArrayList<Integer>(hierarClusteringResult.get(hal.get(i)));
+                for(int j=0; j<members.size(); j++)
+                    System.out.println(members.get(j));
+            }
             
             if(gammaCOs.get(bestI)>gammaCObest){
                 gammaCObest=gammaCOs.get(bestI);
                 bestClusteringResult = clusteringResult.get(bestI);
                 lastCSimMat = cSimMats.get(bestI);
                 lastTransformedCSimMat = transformedCSimMats.get(bestI);
+                
+                //merge cluster members because we found new level of hierarchy
+                HashMap<Integer,HashSet<Integer>> newHierarClusteringResult = new HashMap<Integer,HashSet<Integer>>();
+                ArrayList<Integer> alC = new ArrayList<Integer>(bestClusteringResult.keySet());
+                for(int z=0; z<alC.size(); z++){
+                    HashSet<Integer> newMembers = new HashSet<Integer>();
+                    ArrayList<Integer> members = new ArrayList<Integer>(bestClusteringResult.get(alC.get(z)));
+                    for(int memIdx=0; memIdx<members.size(); memIdx++){
+                        newMembers.addAll(hierarClusteringResult.get(members.get(memIdx)));
+                    }
+                    newHierarClusteringResult.put(z,newMembers);
+                }
+                hierarClusteringResult = newHierarClusteringResult;
+                
             }else{
                 noBetterGammaCO=true;
             }
             
         }
-        return bestClusteringResult;
+        return hierarClusteringResult;
     }
 }
