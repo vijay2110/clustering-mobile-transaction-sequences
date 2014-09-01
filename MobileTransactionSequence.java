@@ -6,13 +6,13 @@ import java.util.Collections;
  *
  */
 public class MobileTransactionSequence {
-    public int userid;
+    public String userid;
     ArrayList<MTSNode> seq = null;
     
-    public MobileTransactionSequence(int userid, ArrayList<MTSNode> seq) {
+    public MobileTransactionSequence(String userid, ArrayList<MTSNode> seq) {
         this.userid = userid;
         this.seq = seq;
         //sort Mobile Transaction Sequences based on hour key
         Collections.sort(this.seq);
     }
-}
+} 

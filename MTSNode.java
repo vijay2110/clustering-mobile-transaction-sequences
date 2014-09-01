@@ -13,7 +13,7 @@ public class MTSNode implements Comparable<MTSNode> {
     public MTSNode(Location location, int hour, ArrayList<String> appids) {
         this.location = location;
         this.hour = hour;
-        this.appids = appids;
+        this.appids = appids; 
     }
     
     public MTSNode(int hour, int loc, String appid) {

@@ -146,9 +146,8 @@ public class CTMSPUtil {
         //keep iterating until we have elements which are not assigned to any cluster
         //TODO check whether this goes into infinite loop
         while(!elements.isEmpty()){
-            
             //select pair from elements with highest similarity 
-            float max = 0f;
+            float max = Float.NEGATIVE_INFINITY;
             int mts1=0,mts2=1; //these choices will be replaced by below logic (worst case, if max not found, then these choices are good enough)
             ArrayList<Integer> alElements = new ArrayList<Integer>(elements);
             HashSet<Integer> c = new HashSet<Integer>();
@@ -172,9 +171,8 @@ public class CTMSPUtil {
                 c.add(mts2);
             }
                 
-            
-            boolean cChanged=false;
-            
+            //below data avoids infinite loop: remove->add->remove->add
+            int prevRemoved1=-1, prevRemoved2=-1; 
             //keep iterating until cluster gets converged
             //TODO check whether this goes into infinite loop
             boolean clusterConverged=false;
@@ -188,7 +186,6 @@ public class CTMSPUtil {
                 //if(!cChanged)
                 //    selfSimC=max;
                 //else{
-                    cChanged=true;
                     for(int i=0; i<alC.size(); i++)
                         for(int j=i+1; j<alC.size(); j++)
                             selfSimC = selfSimC + simMat[alC.get(i)][alC.get(j)];
@@ -210,8 +207,10 @@ public class CTMSPUtil {
                 
                 //add that nearest close MTS into cluster
                 if(nearestMTS!=0 && minDistance<threshold){
-                    c.add(nearestMTS);
-                    addedCloseMTStoCluster=true;
+                    if(nearestMTS!=prevRemoved1 && nearestMTS!=prevRemoved2){
+                        c.add(nearestMTS);
+                        addedCloseMTStoCluster=true;
+                    }
                 }
                 
                 if(addedCloseMTStoCluster){
@@ -227,7 +226,7 @@ public class CTMSPUtil {
                 if(c.size()>2){
                     //find farthest MTC within cluster
                     int farthestMTS1=0, farthestMTS2=0;
-                    float maxDistance=0f;
+                    float maxDistance=Float.NEGATIVE_INFINITY;
                     for(int i=0; i<alC.size(); i++)
                         for(int j=i+1; j<alC.size(); j++)
                             if(Math.abs(selfSimC - simMat[alC.get(i)][alC.get(j)]) > maxDistance){
@@ -240,10 +239,12 @@ public class CTMSPUtil {
                     if(farthestMTS1!=0 && maxDistance>=threshold){
                         c.remove(farthestMTS1);
                         c.remove(farthestMTS2);
+                        prevRemoved1=farthestMTS1;
+                        prevRemoved2=farthestMTS2;
                         removedDistantMTSfromCluster=true;
                     }
                 }
-                
+        
                 //check whether cluster is converged
                 if(!addedCloseMTStoCluster && !removedDistantMTSfromCluster)
                     clusterConverged=true;
@@ -262,15 +263,18 @@ public class CTMSPUtil {
         return clusters;
     }
     
+    /**
+     * @param simMat: MTS similarity matrix
+     * @return final clustering result
+     * @throws CTMSPException
+     */
     public static HashMap<Integer,HashSet<Integer>> performCoSmartCAST(float[][] simMat) throws CTMSPException{
         //TODO Input Validation
-        
-        //TODO update this - for simplicity (while calculating Hubert's Gamma Stats) populate diagonal elements of similarity matrix as 1
-        //for(int i=0; i<simMat.length; i++)
-        //    for(int j=0; j<simMat.length; j++)
-        //        if(i==j) simMat[i][j]=1f;
-        
+
+        //stores final clustering result, gets updated at every iteration
         HashMap<Integer,HashSet<Integer>> hierarClusteringResult=new HashMap<Integer,HashSet<Integer>>();
+        
+        //bottom-up clustering approach, every mts is a cluster initially
         HashMap<Integer,HashSet<Integer>> initialClusters = new HashMap<Integer,HashSet<Integer>>();
         for(int k=0; k<simMat.length; k++){
             HashSet<Integer> members = new HashSet<Integer>();
@@ -282,13 +286,15 @@ public class CTMSPUtil {
             hierarClusteringResult.put(k, hMembers);
         }
         
-        float gammaCObest = -1f;
+        float gammaCObest = Float.NEGATIVE_INFINITY;
+        
+        //contains best clustering result from last iteration
         HashMap<Integer,HashSet<Integer>> bestClusteringResult = initialClusters;
         float epsilon = 0.0001f;
-        float[][] lastCSimMat = simMat;
-        float[][] lastTransformedCSimMat = simMat;
+        float[][] lastCSimMat = simMat; //cluster similarity matrix for bestClusteringResult 
+        float[][] lastTransformedCSimMat = simMat; //transformed cluster similarity matrix for bestClusteringResult (used to calculate Hubert's Gamma Stats)
         
-        boolean noBetterGammaCO = false;
+        boolean noBetterGammaCO = false; //decides whether to continue with next iteration or not
         while(!noBetterGammaCO){
             
             float rUpper = 0f;
@@ -301,13 +307,15 @@ public class CTMSPUtil {
             int bestI = 0;
             
             do{
-                float gammaCOmax = Float.MIN_VALUE;
-                bestI = 0;
+                float gammaCOmax = Float.NEGATIVE_INFINITY;
+                bestI = 0; //stores which one is best out of below 5 attempts
                 for(int i=0; i<5; i++){
                     
+                    //calculate threshold
                     float tempThreshold = ((float)i*(rUpper-rLower)/4f)+rLower; 
                     thresholds.add(tempThreshold);
                     
+                    //System.out.println("Called performCAST: tempThreshold: "+ tempThreshold);
                     clusteringResult.add(performCAST(bestClusteringResult, lastCSimMat, tempThreshold));
                     
                     //calculate cluster similarity matrix
@@ -342,7 +350,7 @@ public class CTMSPUtil {
                         }
                     cSimMats.add(cSimMat);
                     
-                    //transform cluster similarity matrix so that it has similar dimention of original similarity matrix (simMat)
+                    //transform cluster similarity matrix so that it has similar dimension of original similarity matrix (simMat)
                     float[][] transformedCSimMat = new float[simMat.length][simMat.length];
                     int[] mapMtsToCluster = new int[simMat.length];
                     for(int a=0; a<alC.size(); a++){
